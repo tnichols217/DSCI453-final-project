@@ -1,3 +1,4 @@
+"""Models for using SQLAlchemy"""
 
 from typing import Any, Literal
 
@@ -31,12 +32,12 @@ class Image(Base):
     __tablename__: Literal["images"] = "images"
 
     id: Column[int] = Column(BigInteger, primary_key=True, nullable=False)
-    R: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
-    G: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
-    B: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
-    H: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
-    S: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
-    V: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
+    red: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
+    gre: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
+    blu: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
+    hue: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
+    sat: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
+    val: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
     edge: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
     # dilate  integer[500][500] not null,
     # erode   integer[500][500] not null,

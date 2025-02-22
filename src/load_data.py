@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import cv2
+import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -53,14 +54,15 @@ def insert_image(db: Session, images: Iterable[Path]) -> bool:
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV_FULL)
         b, g, r = cv2.split(image)
         h, s, v = cv2.split(hsv)
-        print(r.tolist())
+        edges = cv2.Canny(v, 100, 200)
         db.add(Image(
-            R=r.tolist(),
-            G=g.tolist(),
-            B=b.tolist(),
-            H=h.tolist(),
-            S=s.tolist(),
-            V=v.tolist(),
+            red=r.tolist(),
+            gre=g.tolist(),
+            blu=b.tolist(),
+            hue=h.tolist(),
+            sat=s.tolist(),
+            val=v.tolist(),
+            edge=edges.tolist(),
         ))
         db.commit()
 

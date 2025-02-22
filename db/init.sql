@@ -12,12 +12,12 @@ create table images
     id bigserial not null
         constraint images_pk
             primary key,
-    R       integer[500][500] not null,
-    G       integer[500][500] not null,
-    B       integer[500][500] not null,
-    H       integer[500][500] not null,
-    S       integer[500][500] not null,
-    V       integer[500][500] not null,
+    red     integer[500][500] not null,
+    gre     integer[500][500] not null,
+    blu     integer[500][500] not null,
+    hue     integer[500][500] not null,
+    sat     integer[500][500] not null,
+    val     integer[500][500] not null,
     edge    integer[500][500],
     dilate  integer[500][500],
     erode   integer[500][500]
