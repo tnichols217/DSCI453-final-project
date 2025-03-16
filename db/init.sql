@@ -18,7 +18,8 @@ create table images
     hue     integer[500][500] not null,
     sat     integer[500][500] not null,
     val     integer[500][500] not null,
-    edge    integer[500][500],
-    dilate  integer[500][500],
-    erode   integer[500][500]
+    edge    integer[500][500] not null,
+    dilate  integer[500][500] not null,
+    erode   integer[500][500] not null,
+    label   boolean
 );

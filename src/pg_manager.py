@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     Integer,
     MetaData,
@@ -39,5 +40,10 @@ class Image(Base):
     sat: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
     val: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
     edge: Column[list[list[int]]] = Column(ARRAY(Integer, dimensions=2), nullable=False)
-    # dilate  integer[500][500] not null,
-    # erode   integer[500][500] not null,
+    dilate: Column[list[list[int]]] = Column(
+        ARRAY(Integer, dimensions=2), nullable=False
+    )
+    erode: Column[list[list[int]]] = Column(
+        ARRAY(Integer, dimensions=2), nullable=False
+    )
+    label: Column[bool] = Column(Boolean, nullable=False)

@@ -34,6 +34,7 @@
               python-dotenv
               psycopg2
               psycopg
+              asyncpg
               opencv-python
               keras
               tensorflow
