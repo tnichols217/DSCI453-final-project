@@ -1,9 +1,10 @@
 """Loads image data into the database"""
 
+import asyncio
 import csv
 import os
-from multiprocessing import Pool, cpu_count
 from pathlib import Path
+from types import CoroutineType
 
 import cv2
 from cv2.typing import MatLike
@@ -11,8 +12,10 @@ from dotenv import load_dotenv
 from matplotlib import pyplot as plt
 from numpy import dtype, generic, ndarray
 from numpy._typing._shape import _Shape
-from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio.engine import AsyncEngine
+from sqlalchemy.future import select
 
 from pg_manager import Image
 
@@ -25,8 +28,19 @@ POSTGRES_ENDPOINT = os.getenv("POSTGRES_ENDPOINT") or ""
 DB_URL = os.getenv("DB_URI") or ""
 DATA_CSV = Path(os.getenv("DATA_CSV") or "")
 DATA_DIR = Path(os.getenv("DATA_DIR") or "")
-THREADS = cpu_count()
+THREADS = 20
 CHUNK = 10
+
+# Create an async engine and sessionmaker
+async_engine: AsyncEngine = create_async_engine(
+    DB_URL,
+    pool_size=THREADS,
+    max_overflow=10,
+    future=True,
+)
+AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    async_engine, class_=AsyncSession
+)
 
 
 def resize_and_crop(
@@ -66,7 +80,7 @@ def resize_and_crop(
     return res[y : y + target_size[0], x : x + target_size[1]]
 
 
-def insert_image(db: Session, i: Path, labels: dict[str, bool]) -> bool:
+def insert_image(db: AsyncSession, i: Path, labels: dict[str, bool]) -> bool:
     """Insert images into the database asynchronously
 
     Args:
@@ -109,30 +123,23 @@ def insert_image(db: Session, i: Path, labels: dict[str, bool]) -> bool:
     return True
 
 
-def image_loop(files: list[Path], labels: dict[str, bool]) -> None:
+async def image_loop(files: list[Path], labels: dict[str, bool]) -> None:
     """Async loop for inserting images into the database"""
-    engine: Engine = create_engine(
-        DB_URL,
-        pool_size=THREADS,
-        max_overflow=10,
-        future=True,
-    )
-    SessionLocal: sessionmaker[Session] = sessionmaker(engine, class_=Session)
     f = iter(files)
     n = next(f, None)
-    with SessionLocal() as db:
+    async with AsyncSessionLocal() as db:
         while n:
             for _ in range(CHUNK):
                 if not n:
                     break
                 _ = insert_image(db, n, labels)
                 n = next(f, None)
-            print(f"Inserting {CHUNK} images")
-            db.commit()
-            print(f"Inserted {CHUNK} images")
+            print(f"    Inserting {CHUNK} images")
+            await db.commit()
+            print(f"        Inserted {CHUNK} images")
 
 
-def main() -> None:
+async def main() -> None:
     """Main function for loading images into the database"""
     labels: dict[str, bool] = {}
     with Path.open(DATA_CSV, "r") as f:
@@ -145,13 +152,16 @@ def main() -> None:
     print(f"Loading {len(files)} images into the database")
     print(f"Using {THREADS} threads")
     print(f"Loading {chunk_size} images per thread")
-    chunks = [
-        files[i * chunk_size : (None if i == THREADS - 1 else (i + 1) * chunk_size)]
-        for i in range(THREADS)
-    ]
-    with Pool(THREADS) as pool:
-        _ = pool.starmap(image_loop, [(chunk, labels) for chunk in chunks])
+    tasks: list[CoroutineType[None, None, None]] = []
+
+    for i in range(THREADS):
+        start = i * chunk_size
+        end = None if i == THREADS - 1 else start + chunk_size
+        chunk = files[start:end]
+        tasks.append(image_loop(chunk, labels))
+
+    _ = await asyncio.gather(*tasks)
 
 
 if __name__ == "__main__":
-    main()
+    _ = asyncio.run(main())
