@@ -28,15 +28,6 @@ DATA_DIR = Path(os.getenv("DATA_DIR") or "")
 THREADS = cpu_count()
 CHUNK = 100
 
-# Create an async engine and sessionmaker
-engine: Engine = create_engine(
-    DB_URL,
-    pool_size=THREADS,
-    max_overflow=10,
-    future=True,
-)
-SessionLocal: sessionmaker[Session] = sessionmaker(engine, class_=Session)
-
 
 def resize_and_crop(
     image: MatLike, target_size: tuple[int, int] = (500, 500)
@@ -120,6 +111,13 @@ def insert_image(db: Session, i: Path, labels: dict[str, bool]) -> bool:
 
 def image_loop(files: list[Path], labels: dict[str, bool]) -> None:
     """Async loop for inserting images into the database"""
+    engine: Engine = create_engine(
+        DB_URL,
+        pool_size=THREADS,
+        max_overflow=10,
+        future=True,
+    )
+    SessionLocal: sessionmaker[Session] = sessionmaker(engine, class_=Session)
     f = iter(files)
     n = next(f, None)
     with SessionLocal() as db:
