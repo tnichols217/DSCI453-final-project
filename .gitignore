@@ -3,3 +3,4 @@ out
 stor
 .direnv
 .env
+__pycache__
