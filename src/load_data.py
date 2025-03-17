@@ -26,7 +26,7 @@ DB_URL = os.getenv("DB_URI") or ""
 DATA_CSV = Path(os.getenv("DATA_CSV") or "")
 DATA_DIR = Path(os.getenv("DATA_DIR") or "")
 THREADS = cpu_count()
-CHUNK = 100
+CHUNK = 10
 
 
 def resize_and_crop(
