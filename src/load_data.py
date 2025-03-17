@@ -26,7 +26,7 @@ DB_URL = os.getenv("DB_URI") or ""
 DATA_CSV = Path(os.getenv("DATA_CSV") or "")
 DATA_DIR = Path(os.getenv("DATA_DIR") or "")
 THREADS = cpu_count()
-CHUNK = 10
+CHUNK = 100
 
 # Create an async engine and sessionmaker
 engine: Engine = create_engine(
@@ -129,9 +129,9 @@ def image_loop(files: list[Path], labels: dict[str, bool]) -> None:
                     break
                 _ = insert_image(db, n, labels)
                 n = next(f, None)
-            print(f"Inserted {CHUNK} images")
+            print(f"Inserting {CHUNK} images")
             db.commit()
-            db.flush()
+            print(f"Inserted {CHUNK} images")
 
 
 def main() -> None:
