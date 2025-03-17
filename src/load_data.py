@@ -102,7 +102,7 @@ def insert_image(i: Path, labels: dict[str, bool]) -> bool:
 
     subdir = "ai" if labels[i.name] else "no_ai"
 
-    Path.mkdir(OUTPUT_DIR / subdir, exist_ok=True)
+    Path.mkdir(OUTPUT_DIR / subdir, exist_ok=True, parents=True)
     _ = write_file(s, OUTPUT_DIR / subdir / f"{i.stem}.npzstd")
     return True
 
