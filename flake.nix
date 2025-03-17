@@ -39,6 +39,7 @@
               keras
               tensorflow
               sqlalchemy
+              zstandard
             ]))
           ];
         };

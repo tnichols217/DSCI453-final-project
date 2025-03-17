@@ -1,9 +1,16 @@
+"""Short Script to check the status of Postgres"""
+import asyncio
 import os
 from pathlib import Path
 
+import nest_asyncio
 from dotenv import load_dotenv
-from sqlalchemy import Engine, create_engine, text
-from sqlalchemy.orm import Session, session, sessionmaker
+from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio.engine import AsyncEngine
+from sqlalchemy.future import select
+
+from pg_manager import Image
 
 _ = load_dotenv()
 
@@ -16,14 +23,22 @@ DATA_CSV = Path(os.getenv("DATA_CSV") or "")
 DATA_DIR = Path(os.getenv("DATA_DIR") or "")
 CHUNK = 100
 
-engine: Engine = create_engine(
+async_engine: AsyncEngine = create_async_engine(
     DB_URL,
     pool_size=5,
     max_overflow=10,
     future=True,
 )
-SessionLocal: sessionmaker[Session] = sessionmaker(engine, class_=Session)
+AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    async_engine, class_=AsyncSession
+)
 
-s = SessionLocal()
 
-print(list(s.execute(text("SELECT * FROM pg_stat_activity"))))
+async def main() -> None:
+    async with AsyncSessionLocal() as db:
+        print(await db.scalar(select(func.count(Image.id))))
+
+
+if __name__ == "__main__":
+    nest_asyncio.apply()
+    asyncio.run(main())

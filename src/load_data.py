@@ -7,45 +7,27 @@ from pathlib import Path
 from types import CoroutineType
 
 import cv2
+import numpy as np
 from cv2.typing import MatLike
 from dotenv import load_dotenv
 from matplotlib import pyplot as plt
 from numpy import dtype, generic, ndarray
-from numpy._typing._shape import _Shape
-from sqlalchemy import func
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.ext.asyncio.engine import AsyncEngine
-from sqlalchemy.future import select
 
-from pg_manager import Image
+from file_manager import write_file
 
 _ = load_dotenv()
 
-POSTGRES_DB = os.getenv("POSTGRES_DB") or ""
-POSTGRES_USER = os.getenv("POSTGRES_USER") or ""
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD") or ""
-POSTGRES_ENDPOINT = os.getenv("POSTGRES_ENDPOINT") or ""
-DB_URL = os.getenv("DB_URI") or ""
 DATA_CSV = Path(os.getenv("DATA_CSV") or "")
 DATA_DIR = Path(os.getenv("DATA_DIR") or "")
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR") or "")
 THREADS = 20
 CHUNK = 10
-
-# Create an async engine and sessionmaker
-async_engine: AsyncEngine = create_async_engine(
-    DB_URL,
-    pool_size=THREADS,
-    max_overflow=10,
-    future=True,
-)
-AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
-    async_engine, class_=AsyncSession
-)
+SIZE = (500, 500)
 
 
 def resize_and_crop(
-    image: MatLike, target_size: tuple[int, int] = (500, 500)
-) -> ndarray[_Shape, dtype[generic]]:
+    image: MatLike, target_size: tuple[int, int] = SIZE
+) -> ndarray[tuple[int, ...], dtype[generic]]:
     """Resize and crop an image to the target size without distortion.
 
     Args:
@@ -80,7 +62,7 @@ def resize_and_crop(
     return res[y : y + target_size[0], x : x + target_size[1]]
 
 
-def insert_image(db: AsyncSession, i: Path, labels: dict[str, bool]) -> bool:
+def insert_image(i: Path, labels: dict[str, bool]) -> bool:
     """Insert images into the database asynchronously
 
     Args:
@@ -94,7 +76,7 @@ def insert_image(db: AsyncSession, i: Path, labels: dict[str, bool]) -> bool:
     """
     print(f"Processing {i.name}")
     image = cv2.imread(str(i), cv2.IMREAD_COLOR)
-    image = resize_and_crop(image, (500, 500))
+    image = resize_and_crop(image, SIZE)
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV_FULL)
     b, g, r = cv2.split(image)
     h, s, v = cv2.split(hsv)
@@ -106,20 +88,22 @@ def insert_image(db: AsyncSession, i: Path, labels: dict[str, bool]) -> bool:
         v, kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)), iterations=1
     )
 
-    db.add(
-        Image(
-            red=r.tolist(),
-            gre=g.tolist(),
-            blu=b.tolist(),
-            hue=h.tolist(),
-            sat=s.tolist(),
-            val=v.tolist(),
-            edge=edges.tolist(),
-            dilate=dilate.tolist(),
-            erode=erode.tolist(),
-            label=labels[i.name] or False,
-        )
-    )
+    s = np.array([
+        r.tolist(),
+        g.tolist(),
+        b.tolist(),
+        h.tolist(),
+        s.tolist(),
+        v.tolist(),
+        edges.tolist(),
+        dilate.tolist(),
+        erode.tolist(),
+    ], dtype=np.uint8)
+
+    subdir = "ai" if labels[i.name] else "no_ai"
+
+    Path.mkdir(OUTPUT_DIR / subdir, exist_ok=True)
+    _ = write_file(s, OUTPUT_DIR / subdir / f"{i.stem}.npzstd")
     return True
 
 
@@ -127,16 +111,12 @@ async def image_loop(files: list[Path], labels: dict[str, bool]) -> None:
     """Async loop for inserting images into the database"""
     f = iter(files)
     n = next(f, None)
-    async with AsyncSessionLocal() as db:
-        while n:
-            for _ in range(CHUNK):
-                if not n:
-                    break
-                _ = insert_image(db, n, labels)
-                n = next(f, None)
-            print(f"    Inserting {CHUNK} images")
-            await db.commit()
-            print(f"        Inserted {CHUNK} images")
+    while n:
+        for _ in range(CHUNK):
+            if not n:
+                break
+            _ = insert_image(n, labels)
+            n = next(f, None)
 
 
 async def main() -> None:
@@ -165,3 +145,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     _ = asyncio.run(main())
+    # _ = insert_image(AsyncSessionLocal(), DATA_DIR / "1160958731514f6ca15bc9fe62570f01.jpg", {})
