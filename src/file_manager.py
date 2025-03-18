@@ -53,7 +53,12 @@ def read_file(
         ndarray: The loaded array.
 
     """
-    return decode_bytes(get_bytes(file_path), shape)
+    try:
+        return decode_bytes(get_bytes(file_path), shape)
+
+    except Exception as e:
+        print(f"Error reading file {file_path}: {e}")
+        raise e
 
 
 def encode_bytes(array: ndarray[tuple[int, ...], dtype[np.uint8]]) -> bytes:
