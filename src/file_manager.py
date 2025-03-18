@@ -6,6 +6,8 @@ import numpy as np
 import zstandard as zstd
 from numpy import dtype, ndarray
 
+from env_manager import ENV
+
 
 def get_bytes(file_path: Path) -> bytes:
     """Read bytes from a file.
@@ -39,7 +41,7 @@ def decode_bytes(
 
 
 def read_file(
-    file_path: Path, shape: tuple[int, ...] = (9, 500, 500)
+    file_path: Path, shape: tuple[int, ...] = (ENV.DIMENSIONS, *ENV.SIZE)
 ) -> ndarray[tuple[int, ...], dtype[np.uint8]]:
     """Read Binary Numpy data from a file.
 
