@@ -9,6 +9,7 @@
       inherit system;
       config = {
         allowUnfree = true;
+
       };
     };
     in
@@ -36,8 +37,8 @@
               psycopg
               asyncpg
               opencv-python
-              keras
-              tensorflow
+              (keras.override { tensorflow = tensorflowWithCuda; })
+              tensorflowWithCuda
               sqlalchemy
               zstandard
             ]))

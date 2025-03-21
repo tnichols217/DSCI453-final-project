@@ -1,13 +1,11 @@
 """Collection of functions to help with producing the model Dataset"""
 
 import random
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any, Callable, Generator
 
-import keras as k
+import keras as k  # pyright: ignore[reportMissingTypeStubs]
 import numpy as np
-from numpy._typing import _16Bit
 import tensorflow.python.framework.dtypes as tft
 from tensorflow.python.data.ops.dataset_ops import AUTOTUNE, DatasetV2
 from tensorflow.python.framework.tensor import Tensor, TensorSpec
@@ -116,10 +114,20 @@ def create_dataset() -> tuple[DatasetV2, DatasetV2]:
 
 
 def create_model() -> k.Sequential:
+    """Create a simple convolutional neural network model.
+
+    Returns:
+        k.Sequential: The compiled convolutional neural network model.
+
+    """
     model = k.Sequential(
         [
             k.layers.Conv2D(
                 32, (3, 3), activation="relu", input_shape=(*ENV.SIZE, ENV.DIMENSIONS)
+            ),
+            k.layers.MaxPooling2D((2, 2)),
+            k.layers.Conv2D(
+                32, (3, 3), activation="relu"
             ),
             k.layers.MaxPooling2D((2, 2)),
             k.layers.Flatten(),
@@ -128,7 +136,7 @@ def create_model() -> k.Sequential:
     )
 
     # Compile the model
-    model.compile(
+    model.compile(  # pyright: ignore[reportUnknownMemberType]
         optimizer="adam",
         loss="binary_crossentropy",
         metrics=["accuracy"],
@@ -140,9 +148,10 @@ if __name__ == "__main__":
     # Create the dataset
     train, test = create_dataset()
     model = create_model()
-    model.fit(
+    model.fit(  # pyright: ignore[reportUnknownMemberType]
         train,
         epochs=5,
         validation_data=test,
     )
-    print(model.summary())
+    model.save("model1.keras")  # pyright: ignore[reportUnknownMemberType]
+    print(model.summary())  # pyright: ignore[reportUnknownMemberType]
