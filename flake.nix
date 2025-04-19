@@ -22,6 +22,7 @@
             podman-compose
             podman
             jupyter
+            cudaPackages.cudatoolkit
             (python3.withPackages (pythonPackages: with pythonPackages; [
               ipykernel
               pandas
@@ -43,6 +44,10 @@
               zstandard
             ]))
           ];
+          shellHook = ''
+            export CUDA_DIR=${pkgs.cudaPackages.cudatoolkit}
+            export XLA_FLAGS=--xla_gpu_cuda_data_dir=${pkgs.cudaPackages.cudatoolkit}
+          '';
         };
         default = docker-python;
       };

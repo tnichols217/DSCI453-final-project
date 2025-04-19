@@ -1,5 +1,6 @@
 """Collection of functions to help with producing the model Dataset"""
 
+from ast import TypeVar
 import random
 from collections.abc import Callable, Generator
 from pathlib import Path
@@ -113,27 +114,14 @@ def create_dataset() -> tuple[DatasetV2, DatasetV2]:
     )
 
 
-def create_model() -> k.Sequential:
+def create_model(layers: k.Layer) -> k.Sequential:
     """Create a simple convolutional neural network model.
 
     Returns:
         k.Sequential: The compiled convolutional neural network model.
 
     """
-    model = k.Sequential(
-        [
-            k.layers.Conv2D(
-                32, (3, 3), activation="relu", input_shape=(*ENV.SIZE, ENV.DIMENSIONS)
-            ),
-            k.layers.MaxPooling2D((2, 2)),
-            k.layers.Conv2D(
-                32, (3, 3), activation="relu"
-            ),
-            k.layers.MaxPooling2D((2, 2)),
-            k.layers.Flatten(),
-            k.layers.Dense(1, activation="sigmoid"),  # Binary classification
-        ]
-    )
+    model = k.Sequential(layers)
 
     # Compile the model
     model.compile(  # pyright: ignore[reportUnknownMemberType]
@@ -147,7 +135,15 @@ def create_model() -> k.Sequential:
 if __name__ == "__main__":
     # Create the dataset
     train, test = create_dataset()
-    model = create_model()
+    layers = [
+        k.layers.Conv2D(
+            32, (3, 3), activation="relu", input_shape=(*ENV.SIZE, ENV.DIMENSIONS)
+        ),
+        k.layers.MaxPooling2D((2, 2)),
+        k.layers.Flatten(),
+        k.layers.Dense(1, activation="sigmoid"),  # Binary classification
+    ]
+    model = create_model(layers)
     model.fit(  # pyright: ignore[reportUnknownMemberType]
         train,
         epochs=5,
