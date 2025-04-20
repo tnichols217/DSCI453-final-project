@@ -1,18 +1,15 @@
 """Collection of functions to help with producing the model Dataset"""
 
-from ast import TypeVar
 import random
-from collections.abc import Callable, Generator
 from pathlib import Path
 
-import keras as k  # pyright: ignore[reportMissingTypeStubs]
+import keras as k
 import numpy as np
 import tensorflow.python.framework.dtypes as tft
+import tensorflow.python.ops.script_ops as tpo
+from numpy.typing import NDArray
 from tensorflow.python.data.ops.dataset_ops import AUTOTUNE, DatasetV2
-from tensorflow.python.framework.tensor import Tensor, TensorSpec
-from tensorflow.python.framework.tensor_conversion import (
-    convert_to_tensor_v2,  # pyright: ignore[reportUnknownVariableType]
-)
+from tensorflow.python.framework.tensor import Tensor
 
 from env_manager import ENV, SUBDIR
 from file_manager import read_file
@@ -31,7 +28,7 @@ def get_image_list(seed: int = 1) -> list[Path]:
     return files
 
 
-def get_train_test_images(ratio: float = 0.1) -> tuple[list[Path], list[Path]]:
+def get_train_test_images(ratio: float = 0.1) -> tuple[list[str], list[str]]:
     """Splits the image list into training and testing sets.
 
     Args:
@@ -43,10 +40,11 @@ def get_train_test_images(ratio: float = 0.1) -> tuple[list[Path], list[Path]]:
     """
     files = get_image_list()
     test_size = int(len(files) * ratio)
-    return files[test_size + 1 :], files[:test_size]
+    fstr = [str(i.absolute()) for i in files]
+    return fstr[test_size + 1 :], fstr[:test_size]
 
 
-def load_one(fp: Path) -> tuple[Tensor, bool]:
+def load_one(fp: Path | str) -> tuple[NDArray[np.uint8], bool]:
     """Loads an image from the specified file path.
 
     Args:
@@ -56,34 +54,33 @@ def load_one(fp: Path) -> tuple[Tensor, bool]:
         tf.Tensor: The loaded image tensor.
 
     """
+    fp = Path(fp)
     image = read_file(fp)
     label = fp.parent.name == SUBDIR.AI
-    image = convert_to_tensor_v2(np.moveaxis(image, 0, -1).astype(np.float32) / 255.0)
+    image = np.moveaxis(image, 0, -1)
 
     return image, label
 
 
-def get_data_generator(
-    images: list[Path],
-) -> Callable[..., Generator[tuple[Tensor, bool], None, None]]:
-    """Generator for loading and preparing images in batches.
+def load_one_tensor(fp: Tensor) -> tuple[Tensor, bool]:
+    """Loads an image from the specified file path.
 
     Args:
-        images (list[Path]): List of image file paths.
+        fp (Tensor): The file path to load the image from.
 
     Returns:
-        A function that returns a generator yielding image tensors and labels.
-        Will Yield:
-            tuple[tf.Tensor, bool]: A tuple of image tensor and label.
+        tf.Tensor: The loaded image tensor.
 
     """
-    def gen_ret() -> Generator[tuple[Tensor, bool], None, None]:
-        for n in images:
-            yield load_one(n)
-    return gen_ret
+    image, label = tpo.numpy_function(
+        func=lambda x: load_one(x.decode("utf-8")), inp=[fp], Tout=(tft.uint8, tft.bool)
+    )
+    image.set_shape([*ENV.SIZE, ENV.DIMENSIONS])
+    label.set_shape([])
+    return image, label
 
 
-def create_dataset() -> tuple[DatasetV2, DatasetV2]:
+def create_dataset(size: int = -1) -> tuple[DatasetV2, DatasetV2]:
     """Create a TensorFlow dataset
 
     Returns:
@@ -92,29 +89,20 @@ def create_dataset() -> tuple[DatasetV2, DatasetV2]:
     """
     train, test = get_train_test_images()
     return (
-        DatasetV2.from_generator(  # pyright: ignore[reportUnknownMemberType]
-            get_data_generator(train),
-            output_signature=(
-                TensorSpec(shape=(*ENV.SIZE, ENV.DIMENSIONS), dtype=tft.float32),
-                TensorSpec(shape=(), dtype=tft.bool),
-            ),
-        )
-        .repeat(count=3)
+        DatasetV2.from_tensor_slices(train)
+        .map(load_one_tensor)
         .batch(ENV.BATCH_SIZE)
         .prefetch(AUTOTUNE)
+        .take(size)
     ), (
-        DatasetV2.from_generator(  # pyright: ignore[reportUnknownMemberType]
-            get_data_generator(test),
-            output_signature=(
-                TensorSpec(shape=(*ENV.SIZE, ENV.DIMENSIONS), dtype=tft.float32),
-                TensorSpec(shape=(), dtype=tft.bool),
-            ),
-        )
+        DatasetV2.from_tensor_slices(test)
+        .map(load_one_tensor)
         .batch(ENV.BATCH_SIZE)
+        .prefetch(AUTOTUNE)
     )
 
 
-def create_model(layers: k.Layer) -> k.Sequential:
+def create_model(layers: list[k.Layer]) -> k.Sequential:
     """Create a simple convolutional neural network model.
 
     Returns:
@@ -132,22 +120,37 @@ def create_model(layers: k.Layer) -> k.Sequential:
     return model
 
 
-if __name__ == "__main__":
-    # Create the dataset
-    train, test = create_dataset()
-    layers = [
-        k.layers.Conv2D(
-            32, (3, 3), activation="relu", input_shape=(*ENV.SIZE, ENV.DIMENSIONS)
-        ),
-        k.layers.MaxPooling2D((2, 2)),
-        k.layers.Flatten(),
-        k.layers.Dense(1, activation="sigmoid"),  # Binary classification
-    ]
-    model = create_model(layers)
+def train_model(
+    model: k.Sequential, train: DatasetV2, test: DatasetV2, name: str
+) -> k.Sequential:
+    """Trains a given tensorflow model, with checkpointing
+
+    Args:
+        model: The model to train
+        train: The training dataset
+        test: The testing dataset
+        name: The name to save this model as
+
+    Returns:
+        The original model
+
+    """
     model.fit(  # pyright: ignore[reportUnknownMemberType]
         train,
-        epochs=5,
+        epochs=4,
         validation_data=test,
+        callbacks=[
+            k.callbacks.ModelCheckpoint(
+                f"{name}.keras",
+                monitor="val_loss",
+                verbose=0,
+                save_best_only=True,
+                save_weights_only=False,
+                mode="auto",
+                save_freq="epoch",
+                initial_value_threshold=None,
+            )
+        ]
     )
-    model.save("model1.keras")  # pyright: ignore[reportUnknownMemberType]
-    print(model.summary())  # pyright: ignore[reportUnknownMemberType]
+    model.save(f"{name}-final.keras")  # pyright: ignore[reportUnknownMemberType]
+    return model

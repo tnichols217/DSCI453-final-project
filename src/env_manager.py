@@ -19,7 +19,7 @@ class ENV:
     CHUNK: int = 10
     SIZE: tuple[int, int] = (500, 500)
     DIMENSIONS: int = 9
-    BATCH_SIZE: int = 128
+    BATCH_SIZE: int = 32
 
 
 class SUBDIR:

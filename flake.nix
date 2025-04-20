@@ -23,6 +23,7 @@
             podman
             jupyter
             cudaPackages.cudatoolkit
+            basedpyright
             (python3.withPackages (pythonPackages: with pythonPackages; [
               ipykernel
               pandas
