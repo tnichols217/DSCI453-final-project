@@ -4,7 +4,9 @@ import random
 from pathlib import Path
 
 import keras as k
+from keras.api.callbacks import History
 import numpy as np
+import pandas as pd
 import tensorflow.python.framework.dtypes as tft
 import tensorflow.python.ops.script_ops as tpo
 from numpy.typing import NDArray
@@ -135,9 +137,9 @@ def train_model(
         The original model
 
     """
-    model.fit(  # pyright: ignore[reportUnknownMemberType]
+    history: History = model.fit(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         train,
-        epochs=4,
+        epochs=10,
         validation_data=test,
         callbacks=[
             k.callbacks.ModelCheckpoint(
@@ -149,8 +151,15 @@ def train_model(
                 mode="auto",
                 save_freq="epoch",
                 initial_value_threshold=None,
+            ),
+            k.callbacks.EarlyStopping(
+                monitor="val_accuracy",
+                patience=1,
+                restore_best_weights=True
             )
         ]
     )
+    json_file = Path(f"{name}-history.json")
+    _ = pd.DataFrame(history.history).to_json(json_file.open("w"))
     model.save(f"{name}-final.keras")  # pyright: ignore[reportUnknownMemberType]
     return model

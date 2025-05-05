@@ -6,3 +6,4 @@ stor
 __pycache__
 *.keras
 report.json
+*.json
